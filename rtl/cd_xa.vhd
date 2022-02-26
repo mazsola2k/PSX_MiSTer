@@ -13,9 +13,6 @@ entity cd_xa is
       reset                : in  std_logic;
 
       spu_tick             : in  std_logic;
-      
-      CDDA_write           : in  std_logic;
-      CDDA_data            : in  std_logic_vector(31 downto 0);
 
       XA_addr              : in  integer range 0 to 587;
       XA_data              : in  std_logic_vector(31 downto 0);
@@ -25,8 +22,8 @@ entity cd_xa is
       
       XA_eof               : out std_logic := '0';
       
-      cdaudio_left         : out signed(15 downto 0);
-      cdaudio_right        : out signed(15 downto 0)
+      cdxa_left            : out signed(15 downto 0);
+      cdxa_right           : out signed(15 downto 0)
    );
 end entity;
 
@@ -423,11 +420,6 @@ begin
            
          else
          
-            if (CDDA_write = '1') then
-               FifoOut_Wr  <= '1';
-               FifoOut_Din <= CDDA_data;
-            end if;
-         
             case (ResampleState) is
             
                when RESAMPLE_IDLE =>
@@ -539,7 +531,7 @@ begin
    ififoOut: entity mem.SyncFifoFallThrough
    generic map
    (
-      SIZE             => 1024,
+      SIZE             => 32,
       DATAWIDTH        => 32,
       NEARFULLDISTANCE => 16
    )
@@ -566,14 +558,14 @@ begin
          FifoOut_Rd <= '0';
 
          if (reset = '1') then
-            cdaudio_left  <= (others => '0');
-            cdaudio_right <= (others => '0');
+            cdxa_left  <= (others => '0');
+            cdxa_right <= (others => '0');
          else
             if (spu_tick = '1') then
                if (FifoOut_Empty = '0') then
                   FifoOut_Rd <= '1';
-                  cdaudio_left  <= signed(FifoOut_Dout(15 downto  0));
-                  cdaudio_right <= signed(FifoOut_Dout(31 downto 16));
+                  cdxa_left  <= signed(FifoOut_Dout(15 downto  0));
+                  cdxa_right <= signed(FifoOut_Dout(31 downto 16));
                --else
                --   sampleOut  <= (others => '0');
                end if;

@@ -20,12 +20,10 @@ entity psx_mister is
       REPRODUCIBLEGPUTIMING : in  std_logic;
       REPRODUCIBLEDMATIMING : in  std_logic;
       DMABLOCKATONCE        : in  std_logic;
-      multitrack            : in  std_logic;
       INSTANTSEEK           : in  std_logic;
       ditherOff             : in  std_logic;
       fpscountOn            : in  std_logic;
       errorOn               : in  std_logic;
-      PATCHSERIAL           : in  std_logic;
       noTexture             : in  std_logic;
       SPUon                 : in  std_logic;
       SPUSDRAM              : in  std_logic;
@@ -56,13 +54,9 @@ entity psx_mister is
       -- cd
       region                : in  std_logic_vector(1 downto 0);
       hasCD                 : in  std_logic;
-      newCD                 : in  std_logic;
       LIDopen               : in  std_logic;
       fastCD                : in  std_logic;
       libcryptKey           : in  std_logic_vector(15 downto 0);
-      trackinfo_data        : in std_logic_vector(31 downto 0);
-      trackinfo_addr        : in std_logic_vector(8 downto 0);
-      trackinfo_write       : in std_logic;
       cd_Size               : in  unsigned(29 downto 0);
       cd_req                : out std_logic := '0';
       cd_addr               : out std_logic_vector(26 downto 0) := (others => '0');
@@ -71,7 +65,6 @@ entity psx_mister is
       cd_hps_on             : in  std_logic;
       cd_hps_req            : out std_logic := '0';
       cd_hps_lba            : out std_logic_vector(31 downto 0);
-      cd_hps_lba_sim        : out std_logic_vector(31 downto 0);
       cd_hps_ack            : in  std_logic;
       cd_hps_write          : in  std_logic;
       cd_hps_data           : in  std_logic_vector(15 downto 0);
@@ -128,12 +121,10 @@ entity psx_mister is
       PadPortAnalog1        : in  std_logic;
       PadPortMouse1         : in  std_logic;
       PadPortGunCon1        : in  std_logic;
-      PadPortneGcon1        : in  std_logic;
       PadPortEnable2        : in  std_logic;
       PadPortAnalog2        : in  std_logic;
       PadPortMouse2         : in  std_logic;
       PadPortGunCon2        : in  std_logic;
-      PadPortneGcon2        : in  std_logic;
       KeyTriangle           : in  std_logic_vector(1 downto 0); 
       KeyCircle             : in  std_logic_vector(1 downto 0); 
       KeyCross              : in  std_logic_vector(1 downto 0); 
@@ -175,20 +166,7 @@ entity psx_mister is
       savestate_number      : in  integer range 0 to 3;
       state_loaded          : out std_logic;
       rewind_on             : in  std_logic;
-      rewind_active         : in  std_logic;
-      -- cheats
-      cheat_clear           : in  std_logic;
-      cheats_enabled        : in  std_logic;
-      cheat_on              : in  std_logic;
-      cheat_in              : in  std_logic_vector(127 downto 0);
-      cheats_active         : out std_logic := '0';
-      Cheats_BusAddr        : buffer std_logic_vector(20 downto 0);
-      Cheats_BusRnW         : out    std_logic;
-      Cheats_BusByteEnable  : out    std_logic_vector(3 downto 0);
-      Cheats_BusWriteData   : out    std_logic_vector(31 downto 0);
-      Cheats_Bus_ena        : out    std_logic := '0';
-      Cheats_BusReadData    : in     std_logic_vector(31 downto 0);
-      Cheats_BusDone        : in     std_logic
+      rewind_active         : in  std_logic
    );
 end entity;
 
@@ -220,12 +198,10 @@ begin
       REPRODUCIBLEGPUTIMING => REPRODUCIBLEGPUTIMING,
       REPRODUCIBLEDMATIMING => REPRODUCIBLEDMATIMING,
       DMABLOCKATONCE        => DMABLOCKATONCE,
-      multitrack            => multitrack,
       INSTANTSEEK           => INSTANTSEEK,
       ditherOff             => ditherOff,
       fpscountOn            => fpscountOn,
       errorOn               => errorOn,
-      PATCHSERIAL           => PATCHSERIAL,
       noTexture             => noTexture,
       SPUon                 => SPUon,
       SPUSDRAM              => SPUSDRAM,
@@ -256,13 +232,9 @@ begin
       -- cd
       region                => region,
       hasCD                 => hasCD,
-      newCD                 => newCD,
       LIDopen               => LIDopen,
       fastCD                => fastCD,
       libcryptKey           => libcryptKey,
-      trackinfo_data        => trackinfo_data,
-      trackinfo_addr        => trackinfo_addr, 
-      trackinfo_write       => trackinfo_write,
       cd_Size               => cd_Size,
       cd_req                => cd_req, 
       cd_addr               => cd_addr,
@@ -271,7 +243,6 @@ begin
       cd_hps_on             => cd_hps_on,   
       cd_hps_req            => cd_hps_req,  
       cd_hps_lba            => cd_hps_lba,  
-      cd_hps_lba_sim        => cd_hps_lba_sim,  
       cd_hps_ack            => cd_hps_ack,
       cd_hps_write          => cd_hps_write,
       cd_hps_data           => cd_hps_data, 
@@ -328,12 +299,10 @@ begin
       PadPortAnalog1        => PadPortAnalog1,
       PadPortMouse1         => PadPortMouse1,
       PadPortGunCon1        => PadPortGunCon1,
-      PadPortNeGcon1        => PadPortNeGcon1,
       PadPortEnable2        => PadPortEnable2,
       PadPortAnalog2        => PadPortAnalog2,
       PadPortMouse2         => PadPortMouse2, 
       PadPortGunCon2        => PadPortGunCon2,
-      PadPortNeGcon2        => PadPortNeGcon2,
       KeyTriangle           => KeyTriangle,           
       KeyCircle             => KeyCircle,           
       KeyCross              => KeyCross,           
@@ -373,21 +342,7 @@ begin
       savestate_number      => savestate_number,     
       state_loaded          => state_loaded,
       rewind_on             => rewind_on,    
-      -- cheats
-      rewind_active         => rewind_active,
-      cheat_clear           => cheat_clear,
-      cheats_enabled        => cheats_enabled,
-      cheat_on              => cheat_on,
-      cheat_in              => cheat_in,
-      cheats_active         => cheats_active,
-      Cheats_BusAddr        => Cheats_BusAddr,
-		--Cheats_BusAddr        => cheats_addr,
-      Cheats_BusRnW         => Cheats_BusRnW,
-      Cheats_BusByteEnable  => Cheats_BusByteEnable,
-      Cheats_BusWriteData   => Cheats_BusWriteData,
-      Cheats_Bus_ena        => Cheats_Bus_ena,
-      Cheats_BusReadData    => Cheats_BusReadData,
-      Cheats_BusDone        => Cheats_BusDone
+      rewind_active         => rewind_active
    );                          
 
 end architecture;

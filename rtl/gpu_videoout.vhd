@@ -18,14 +18,6 @@ entity gpu_videoout is
       fpscountOn              : in  std_logic;
       fpscountBCD             : in  unsigned(7 downto 0);     
 
-      Gun1CrosshairOn         : in  std_logic;
-      Gun1X                   : in  unsigned(7 downto 0);
-      Gun1Y_scanlines         : in  unsigned(8 downto 0);
-
-      Gun2CrosshairOn         : in  std_logic;
-      Gun2X                   : in  unsigned(7 downto 0);
-      Gun2Y_scanlines         : in  unsigned(8 downto 0);
-
       debug_lateSamples       : in  unsigned(15 downto 0);
       debug_lateTicks         : in  unsigned(15 downto 0);      
          
@@ -137,15 +129,6 @@ architecture arch of gpu_videoout is
    signal debugtextDbg        : unsigned(23 downto 0);
    signal debugtextDbg_data   : std_logic_vector(23 downto 0);
    signal debugtextDbg_ena    : std_logic;
-
-   signal overlay_Gun1_ena    : std_logic;
-   signal overlay_Gun2_ena    : std_logic;
-
-   signal Gun1X_screen        : integer range 0 to 1023;
-   signal Gun2X_screen        : integer range 0 to 1023;
-
-   signal Gun1Y_screen        : unsigned(9 downto 0);
-   signal Gun2Y_screen        : unsigned(9 downto 0);
    
 begin 
 
@@ -292,14 +275,6 @@ begin
                      video_r      <= debugtextDbg_data( 7 downto 0);
                      video_g      <= debugtextDbg_data(15 downto 8);
                      video_b      <= debugtextDbg_data(23 downto 16);
-                  elsif (overlay_Gun1_ena = '1') then
-                     video_r      <= (others => '1');
-                     video_g      <= (others => '0');
-                     video_b      <= (others => '0');
-                  elsif (overlay_Gun2_ena = '1') then
-                     video_r      <= (others => '0');
-                     video_g      <= (others => '1');
-                     video_b      <= (others => '1');
                   elsif (GPUSTAT_DisplayDisable = '1') then
                      video_r      <= (others => '0');
                      video_g      <= (others => '0');
@@ -528,31 +503,6 @@ begin
       textstring             => x"444247"
    );
 
-   -- Map gun coordinates (0-255 X, Y) to screen positions
-   Gun1X_screen <= to_integer(to_unsigned(to_integer(DisplayWidth * Gun1X), 18) (17 downto 8));
-   Gun2X_screen <= to_integer(to_unsigned(to_integer(DisplayWidth * Gun2X), 18) (17 downto 8));
-
-   Gun1Y_screen <= '0' & Gun1Y_scanlines when interlacedMode = '0' else Gun1Y_scanlines & '0';
-   Gun2Y_screen <= '0' & Gun2Y_scanlines when interlacedMode = '0' else Gun2Y_scanlines & '0';
-
-   -- Lightgun crosshairs (currently single pixel to save resources)
-   process (clk2x)
-   begin
-      if rising_edge(clk2x) then
-         if (video_ce = '1') then
-            overlay_Gun1_ena <= '0';
-            overlay_Gun2_ena <= '0';
-
-            if (Gun1CrosshairOn = '1' and xpos = Gun1X_screen and to_integer(lineDisp) = Gun1Y_screen) then
-               overlay_Gun1_ena <= '1';
-            end if;
-
-            if (Gun2CrosshairOn = '1' and xpos = Gun2X_screen and to_integer(lineDisp) = Gun2Y_screen) then
-               overlay_Gun2_ena <= '1';
-            end if;
-         end if;
-      end if;
-   end process;
 
 end architecture;
 

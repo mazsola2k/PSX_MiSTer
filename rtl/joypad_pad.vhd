@@ -13,8 +13,6 @@ entity joypad_pad is
       analogPad            : in  std_logic;
       isMouse              : in  std_logic;
       isGunCon             : in  std_logic;
-      isNeGcon             : in  std_logic;
-      isPal                : in  std_logic;
       
       selected             : in  std_logic;
       actionNext           : in  std_logic := '0';
@@ -54,10 +52,7 @@ entity joypad_pad is
       MouseLeft            : in  std_logic;
       MouseRight           : in  std_logic;
       MouseX               : in  signed(8 downto 0);
-      MouseY               : in  signed(8 downto 0);
-      GunX                 : in  unsigned(7 downto 0);
-      GunY_scanlines       : in  unsigned(8 downto 0);
-      GunAimOffscreen      : in  std_logic
+      MouseY               : in  signed(8 downto 0)
    );
 end entity;
 
@@ -83,12 +78,7 @@ architecture arch of joypad_pad is
       ANALOGRIGHTX,
       ANALOGRIGHTY,
       ANALOGLEFTX,
-      ANALOGLEFTY,
-      NEGCONBUTTONMSB,
-      NEGCONSTEERING,
-      NEGCONANALOGI,
-      NEGCONANALOGII,
-      NEGCONANALOGL
+      ANALOGLEFTY
    );
    signal controllerState : tcontrollerState := IDLE;
    
@@ -96,7 +86,6 @@ architecture arch of joypad_pad is
    signal rumbleOnFirst   : std_logic := '0';
    signal mouseSave       : std_logic := '0';
    signal gunConSave      : std_logic := '0';
-   signal neGconSave      : std_logic := '0';
 
    signal prevMouseEvent  : std_logic := '0';
 
@@ -106,9 +95,7 @@ architecture arch of joypad_pad is
    signal mouseOutX       : signed(7 downto 0) := (others => '0');
    signal mouseOutY       : signed(7 downto 0) := (others => '0');
 
-   signal gunOffScreen    : std_logic := '0';
-   signal gunConX_8MHz    : std_logic_vector(8 downto 0) := (others => '0');
-   signal gunConY         : std_logic_vector(8 downto 0) := (others => '0');
+   signal gunConX         : std_logic_vector(8 downto 0) := (others => '0');
   
 begin 
 
@@ -186,7 +173,6 @@ begin
                         analogPadSave   <= analogPad;
                         mouseSave       <= isMouse;
                         gunConSave      <= isGunCon;
-                        neGconSave      <= isNeGcon;
                         receiveValid    <= '1';
                         receiveBuffer   <= x"FF";
 
@@ -201,7 +187,6 @@ begin
                               analogPadSave   <= analogPad;
                               mouseSave       <= isMouse;
                               gunConSave      <= isGunCon;
-                              neGconSave      <= isNeGcon;
                               receiveValid    <= '1';
                               receiveBuffer   <= x"FF";
                            end if;
@@ -212,8 +197,6 @@ begin
                                  receiveBuffer   <= x"12";
                               elsif (gunConSave = '1') then
                                  receiveBuffer   <= x"63";
-                              elsif (neGconSave = '1') then
-                                 receiveBuffer   <= x"23";
                               elsif (analogPadSave = '1') then
                                  receiveBuffer   <= x"73";
                               else
@@ -291,12 +274,6 @@ begin
                            ack             <= '1';
                            receiveValid    <= '1';
 
-                           if KeyTriangle = '1' or GunAimOffscreen = '1' then
-                              gunOffscreen <= '1';
-                           else
-                              gunOffscreen <= '0';
-                           end if;
-
                            receiveBuffer(0) <= '1';
                            receiveBuffer(1) <= '1';
                            receiveBuffer(2) <= '1';
@@ -311,20 +288,19 @@ begin
                            ack              <= '1';
                            receiveValid     <= '1';
 
-                           -- GunCon reports X as # of 8MHz clks since HSYNC (01h=Error, or 04Dh..1CDh).
-                           -- Map from joystick's +/-128 to GunCon range (8MHz clocks): (GunX * 384/256) + 67
-                           if gunOffscreen = '0' then
-                              gunConX_8MHz  <= std_logic_vector(to_unsigned(67, 9) + resize(GunX, 9) + resize(GunX(7 downto 1), 9) );
-                           else
-                              gunConX_8MHz  <= "000000001"; -- X: 0x0001, Y: 0x000A indicates no light / offscreen shot
-                           end if;
+                           -- TODO
+                           -- GunCon reports X as # of 8MHz clks since HSYNC (01h=Error, or 04Dh..1CDh)
+                           -- MiSTer framework reports gun as +/-128 joystick, which would require
+                           -- an expensive integer multiply in order to map to the correct range.
+                           -- For now, just double and shift the value, and rely on compensation from framework.
+                           gunConX          <= std_logic_vector(to_unsigned(to_integer(Analog1X & '0') + 269, 9));
 
                            receiveBuffer(0) <= '1';
                            receiveBuffer(1) <= '1';
                            receiveBuffer(2) <= '1';
                            receiveBuffer(3) <= '1';
                            receiveBuffer(4) <= '1';
-                           receiveBuffer(5) <= not (KeyCircle or KeyTriangle); -- Trigger
+                           receiveBuffer(5) <= not KeyCircle; -- Trigger
                            receiveBuffer(6) <= not KeyCross; -- B (right-side button)
                            receiveBuffer(7) <= '1';
 
@@ -333,38 +309,33 @@ begin
                            receiveValid    <= '1';
                            ack             <= '1';
 
-                           receiveBuffer   <= gunConX_8MHz(7 downto 0);
+                           receiveBuffer   <= gunConX(7 downto 0);
 
                         when GUNCONXMSB =>
                            controllerState <= GUNCONYLSB;
                            receiveValid    <= '1';
                            ack             <= '1';
 
-                           -- GunCon reports Y as # of scanlines since VSYNC (05h/0Ah=Error, PAL=20h..127h, NTSC=19h..F8h)
-                           if gunOffscreen = '0' then
-                              if isPal = '1' then
-                                 gunConY      <= std_logic_vector(to_unsigned(40, 9) + GunY_scanlines);
-                              else
-                                 gunConY      <= std_logic_vector(to_unsigned(16, 9) + GunY_scanlines);
-                              end if;
-                           else
-                              gunConY      <= "000001010"; -- X: 0x0001, Y: 0x000A indicates no light / offscreen shot
-                           end if;
-
-                           receiveBuffer   <= "0000000" & gunConX_8MHz(8);
+                           receiveBuffer   <= "0000000" & gunConX(8);
 
                         when GUNCONYLSB =>
                            controllerState <= GUNCONYMSB;
                            receiveValid    <= '1';
                            ack             <= '1';
 
-                           receiveBuffer   <= gunConY(7 downto 0);
+                           -- TODO
+                           -- GunCon reports Y as # of scanlines since VSYNC (05h/0Ah=Error, PAL=20h..127h, NTSC=19h..F8h)
+                           -- MiSTer framework reports gun as +/-128 joystick, which would require
+                           -- an expensive integer multiply in order to map to the correct range.
+                           -- For now, just shift the value, and rely on compensation from framework.
+                           receiveBuffer   <= std_logic_vector(to_unsigned(to_integer(Analog1Y) + 128, 8));
 
                         when GUNCONYMSB =>
                            controllerState <= IDLE;
                            receiveValid    <= '1';
 
-                           receiveBuffer   <= "0000000" & gunConY(8);
+                           -- TODO GunCon Y value will always be < 0xFF for NTSC, but may exceed 0x100 for PAL
+                           receiveBuffer   <= X"00";
 
                         when BUTTONLSB => 
                            receiveBuffer(0) <= not KeySelect;
@@ -375,11 +346,7 @@ begin
                            receiveBuffer(5) <= not KeyRight;
                            receiveBuffer(6) <= not KeyDown;
                            receiveBuffer(7) <= not KeyLeft;
-                           if (neGconSave = '1') then
-                              controllerState  <= NEGCONBUTTONMSB;
-                           else
-                              controllerState  <= BUTTONMSB;
-                           end if;
+                           controllerState  <= BUTTONMSB;
                            ack              <= '1';
                            receiveValid     <= '1';
                            rumbleOnFirst    <= '0';
@@ -431,67 +398,7 @@ begin
                            receiveBuffer   <= std_logic_vector(to_unsigned(to_integer(Analog1Y) + 128, 8));
                            receiveValid    <= '1';
                            controllerState <= IDLE;
-
-                        when NEGCONBUTTONMSB =>
-                           -- 0 0 0 R1 B A 0 0
-                           receiveBuffer(0) <= '1'; -- NeGcon does not report
-                           receiveBuffer(1) <= '1'; -- NeGcon does not report
-                           receiveBuffer(2) <= '1'; -- NeGcon does not report
-                           receiveBuffer(3) <= not KeyR1;
-                           receiveBuffer(4) <= not KeyTriangle;
-                           receiveBuffer(5) <= not KeyCircle;
-                           receiveBuffer(6) <= '1'; -- NeGcon does not report
-                           receiveBuffer(7) <= '1'; -- NeGcon does not report
-                           receiveValid     <= '1';
-                           controllerState <= NEGCONSTEERING;
-                           ack <= '1';
-
-                        when NEGCONSTEERING =>
-                           -- Same as ANALOGLEFTX, use IF in there to go to NEGCONANALOGI?
-                           receiveBuffer   <= std_logic_vector(to_unsigned(to_integer(Analog1X) + 128, 8));
-                           receiveValid    <= '1';
-                           controllerState <= NEGCONANALOGI;
-                           ack             <= '1';
-
-                        when NEGCONANALOGI =>
-                           if ( to_integer(Analog2Y) < 0) then
-                              -- Buttons are right stick up
-                              -- Due to half resolution of the stick its range of -128 to 1 is mapped to 0x03 to 0xFF
-                              receiveBuffer   <= std_logic_vector(1 + shift_left(not to_unsigned(to_integer(Analog2Y),8),1));
-                           elsif (KeyCross = '1' or KeyR2 = '1') then
-                              -- Buttons are Buttons and full throttle
-                              receiveBuffer   <= "11111111";
-                           else
-                              receiveBuffer   <= "00000000";
-                           end if;
-                           receiveValid    <= '1';
-                           controllerState <= NEGCONANALOGII;
-                           ack             <= '1';
-
-                        when NEGCONANALOGII =>
-                           if ( to_integer(Analog2Y) > 0) then
-                              -- Buttons are right stick down
-                              -- Due to half resolution of the stick its range of 1 to 127 is mapped to 0x03 to 0xFF
-                              receiveBuffer   <= std_logic_vector(1 + shift_left(to_unsigned(to_integer(Analog2Y),8),1));
-                           elsif (KeySquare = '1' or KeyL2 = '1') then
-                              -- Buttons are Buttons and full throttle
-                              receiveBuffer   <= "11111111";
-                           end if;
-                           receiveValid    <= '1';
-                           controllerState <= NEGCONANALOGL;
-                           ack             <= '1';
-
-                        when NEGCONANALOGL =>
-                           -- Ran out of analog buttons, ideally analog triggers would be supported and a layout
-                           -- R2->I, L2->II, AnalogR->L would be possible, enabling I/II being independent when analog and have analog L
-                           if (KeyL1 = '1') then
-                              receiveBuffer   <= "11111111";
-                           else
-                              receiveBuffer   <= "00000000";
-                           end if;
-                           receiveValid    <= '1';
-                           controllerState <= IDLE;
-
+                           
                      end case;
                   end if;
                end if; -- joy select

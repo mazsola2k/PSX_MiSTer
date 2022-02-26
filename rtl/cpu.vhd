@@ -101,6 +101,8 @@ architecture arch of cpu is
    signal cop0_EPC                     : unsigned(31 downto 0) := (others => '0');
    signal cop0_PRID                    : unsigned(31 downto 0) := (others => '0');
      
+   signal cop0_SR_next                 : unsigned(31 downto 0) := (others => '0');
+     
    signal CACHECONTROL                 : unsigned(31 downto 0) := (others => '0');
                
    -- common   
@@ -268,7 +270,7 @@ architecture arch of cpu is
    signal execute_gte_cmdData          : unsigned(31 downto 0);
    signal execute_gte_cmdEna           : std_logic := '0'; 
    signal execute_gte_readAddr         : unsigned(5 downto 0) := (others => '0');
-   signal execute_lastreadCOP          : std_logic := '0'; 
+   signal execute_lastreadGTE          : std_logic := '0'; 
 
    --wires
    signal branch                       : std_logic := '0';
@@ -302,7 +304,7 @@ architecture arch of cpu is
    signal EXEgte_writeEna              : std_logic := '0';    
    signal EXEgte_cmdData               : unsigned(31 downto 0);
    signal EXEgte_cmdEna                : std_logic := '0'; 
-   signal EXElastreadCOP               : std_logic := '0'; 
+   signal EXElastreadGTE               : std_logic := '0'; 
    
    --MULT/DIV
    type CPU_HILOCALC is
@@ -617,7 +619,7 @@ begin
    mem1_address    <= FetchAddr;
 
    process (blockirq, cop0_SR, cop0_CAUSE, exception, stall, branch, PCbranch, mem4_request, mem_done, mem_dataRead, memoryMuxStage, PC, fetchReady, stall1, exceptionNew, opcode0, mem_dataCache, reset, FetchAddr, 
-            cacheUpdate, tagValid, tag_q_b, blockirqCnt, FetchLastAddr)
+            cacheUpdate, tagValid, tag_q_b, blockirqCnt, FetchLastAddr, cop0_SR_next)
       variable request : std_logic;
    begin
       request         := '0';
@@ -646,7 +648,7 @@ begin
       end if;
       
       
-      if (blockirq = '0' and cop0_SR(0) = '1' and cop0_SR(10) = '1' and cop0_CAUSE(10) = '1') then
+      if (blockirq = '0' and cop0_SR_next(0) = '1' and cop0_SR_next(10) = '1' and cop0_CAUSE(10) = '1') then
       
          if (stall = 0) then
             blockirqNext    <= '1';
@@ -666,9 +668,6 @@ begin
             else
                PCnext <= x"80000080";
             end if;
-            
-            blockirqNext    <= '1';
-            blockirqCntNext <= 10;    
             
          else 
          
@@ -969,17 +968,17 @@ begin
 --############################### stage 3
 --##############################################################
 
-   process (decodeValue1, decodeValue2, decodeSource1, decodeSource2, resultTarget, writebackTarget, writeDoneTarget, resultWriteEnable, writebackWriteEnable, writeDoneWriteEnable, resultData, writebackData, writeDoneData, blockLoadforward, execute_lastreadCOP)
+   process (decodeValue1, decodeValue2, decodeSource1, decodeSource2, resultTarget, writebackTarget, writeDoneTarget, resultWriteEnable, writebackWriteEnable, writeDoneWriteEnable, resultData, writebackData, writeDoneData, blockLoadforward, execute_lastreadGTE)
    begin
    
       value1 <= decodeValue1;
-      if    (decodeSource1 > 0 and resultTarget    = decodeSource1 and resultWriteEnable    = '1' and execute_lastreadCOP = '0') then value1 <= resultData;
+      if    (decodeSource1 > 0 and resultTarget    = decodeSource1 and resultWriteEnable    = '1' and execute_lastreadGTE = '0') then value1 <= resultData;
       elsif (decodeSource1 > 0 and writebackTarget = decodeSource1 and writebackWriteEnable = '1')                               then value1 <= writebackData;
       elsif (decodeSource1 > 0 and writeDoneTarget = decodeSource1 and writeDoneWriteEnable = '1')                               then value1 <= writeDoneData;
       end if;
       
       value2 <= decodeValue2;
-      if    (decodeSource2 > 0 and resultTarget    = decodeSource2 and resultWriteEnable    = '1' and execute_lastreadCOP = '0') then value2 <= resultData;
+      if    (decodeSource2 > 0 and resultTarget    = decodeSource2 and resultWriteEnable    = '1' and execute_lastreadGTE = '0') then value2 <= resultData;
       elsif (decodeSource2 > 0 and writebackTarget = decodeSource2 and writebackWriteEnable = '1' and blockLoadforward = '0'   ) then value2 <= writebackData;
       elsif (decodeSource2 > 0 and writeDoneTarget = decodeSource2 and writeDoneWriteEnable = '1')                               then value2 <= writeDoneData;
       end if;
@@ -1029,7 +1028,7 @@ begin
       EXEhiUpdate             <= '0';
       EXEloUpdate             <= '0';
       
-      EXElastreadCOP          <= '0';
+      EXElastreadGTE          <= '0';
       
       EXEgte_cmdEna           <= '0';
       EXEgte_cmdData          <= opcode1;
@@ -1352,7 +1351,6 @@ begin
                      
                         when 0 => -- mfcn
                            EXEresultWriteEnable <= '1';
-                           EXElastreadCOP       <= '1';
                            case (to_integer(decodeRD)) is
                               when 16#3# => EXEresultData <= cop0_BPC;
                               when 16#5# => EXEresultData <= cop0_BDA;
@@ -1397,7 +1395,7 @@ begin
                         when x"0" => --mfcn
                            EXEresultWriteEnable <= '1';
                            EXEresultData        <= gte_readData;
-                           EXElastreadCOP       <= '1';
+                           EXElastreadGTE       <= '1';
                            if (gte_busy = '1' or gte_cmdEna = '1' or execute_gte_cmdEna = '1') then
                               stallNew3    <= '1';
                               EXEstalltype <= EXESTALLTYPE_GTE;
@@ -1408,7 +1406,7 @@ begin
                         when x"2" => --cfcn
                            EXEresultWriteEnable <= '1';
                            EXEresultData        <= gte_readData;
-                           EXElastreadCOP       <= '1';
+                           EXElastreadGTE       <= '1';
                            if (gte_busy = '1' or gte_cmdEna = '1' or execute_gte_cmdEna = '1') then
                               stallNew3    <= '1';
                               EXEstalltype <= EXESTALLTYPE_GTE;
@@ -1598,17 +1596,6 @@ begin
       
    end process;
    
-   ss_out( 3)               <= std_logic_vector(cop0_BPC);                   
-   ss_out( 4)               <= std_logic_vector(cop0_BDA);                   
-   ss_out( 5)               <= std_logic_vector(cop0_JUMPDEST);              
-   ss_out( 6)               <= std_logic_vector(cop0_DCIC);                  
-   ss_out( 8)               <= std_logic_vector(cop0_BDAM);                  
-   ss_out( 9)               <= std_logic_vector(cop0_BPCM);                  
-   ss_out(10)               <= std_logic_vector(cop0_SR);                    
-   ss_out(11)               <= std_logic_vector(cop0_CAUSE);                 
-   ss_out(12)               <= std_logic_vector(cop0_EPC);                   
-   ss_out(13)               <= std_logic_vector(cop0_PRID);  
-   
    ss_out(16) <= std_logic_vector(opcode2);
    ss_out(21) <= std_logic_vector(pcOld2);
    
@@ -1644,7 +1631,7 @@ begin
    ss_out(58)               <= std_logic_vector(execute_gte_cmdData);        
    ss_out(59)(9)            <= execute_gte_cmdEna;   
    
-   ss_out(59)(10)           <= execute_lastreadCOP;         
+   ss_out(59)(10)           <= execute_lastreadGTE;         
    
    process (clk1x)
    begin
@@ -1652,17 +1639,6 @@ begin
          if (reset = '1') then
          
             stall3                        <= '0';
-            
-            cop0_BPC                      <= unsigned(ss_in(3));
-            cop0_BDA                      <= unsigned(ss_in(4));
-            cop0_JUMPDEST                 <= unsigned(ss_in(5));
-            cop0_DCIC                     <= unsigned(ss_in(6));
-            cop0_BDAM                     <= unsigned(ss_in(8));
-            cop0_BPCM                     <= unsigned(ss_in(9));
-            cop0_SR                       <= unsigned(ss_in(10));
-            cop0_CAUSE                    <= unsigned(ss_in(11));
-            cop0_EPC                      <= unsigned(ss_in(12));
-            cop0_PRID                     <= unsigned(ss_in(13)); -- x"00000002";
                        
             pcOld2                        <= unsigned(ss_in(21));
             opcode2                       <= unsigned(ss_in(16));
@@ -1702,7 +1678,7 @@ begin
             execute_gte_cmdData           <= unsigned(ss_in(58));
             execute_gte_cmdEna            <= ss_in(59)(9);
             
-            execute_lastreadCOP           <= ss_in(59)(10);
+            execute_lastreadGTE           <= ss_in(59)(10);
             
             DIVstart                      <= '0';
             
@@ -1807,29 +1783,7 @@ begin
                   execute_gte_cmdEna            <= EXEgte_cmdEna;  
 
                   execute_gte_readAddr          <= decode_gte_readAddr;  
-                  execute_lastreadCOP           <= EXElastreadCOP;              
-
-                  if (EXECOP0WriteEnable = '1') then
-                     case (to_integer(EXECOP0WriteDestination)) is
-                        when 16#3# => cop0_BPC   <= EXECOP0WriteValue;
-                        when 16#5# => cop0_BDA   <= EXECOP0WriteValue;
-                        when 16#7# => cop0_DCIC  <= EXECOP0WriteValue and x"FF80F03F";
-                        when 16#9# => cop0_BDAM  <= EXECOP0WriteValue;
-                        when 16#B# => cop0_BPCM  <= EXECOP0WriteValue;
-                        when 16#C# => cop0_SR    <= EXECOP0WriteValue and x"F27FFF3F";
-                        when 16#D# => cop0_CAUSE <= EXECOP0WriteValue and x"00000300";
-                        when others => null;
-                     end case;
-                  end if;
-                  
-                  if (executeException = '1') then
-                     cop0_SR        <= exception_SR;
-                     cop0_CAUSE     <= exception_CAUSE;
-                     cop0_EPC       <= exception_EPC;  
-                     cop0_JUMPDEST  <= exception_JMP;  
-                  end if;
-                  
-                  cop0_CAUSE(10) <= irqRequest;
+                  execute_lastreadGTE           <= EXElastreadGTE;              
 
                   blockLoadforward <= '0';
                   if (executeReadEnable = '1' and EXEReadEnable = '1' and resultTarget = EXEresultTarget) then
@@ -1963,6 +1917,11 @@ begin
          scratchpad_wren_a <= "1111";
       end if;
       
+      cop0_SR_next <= cop0_SR;
+      if (stall = 0 and executeCOP0WriteEnable = '1' and to_integer(executeCOP0WriteDestination) = 16#C#) then
+         cop0_SR_next <= executeCOP0WriteValue and x"F27FFF3F";
+      end if;
+      
       if (exception(4 downto 3) = 0 and stall = 0) then
       
          if (executeMemWriteEnable = '1') then
@@ -2032,7 +1991,18 @@ begin
    end process;
    
    ss_out(22)               <= std_logic_vector(pcOld3);                     
-   ss_out(17)               <= std_logic_vector(opcode3);                                     
+   ss_out(17)               <= std_logic_vector(opcode3);                    
+                                   
+   ss_out( 3)               <= std_logic_vector(cop0_BPC);                   
+   ss_out( 4)               <= std_logic_vector(cop0_BDA);                   
+   ss_out( 5)               <= std_logic_vector(cop0_JUMPDEST);              
+   ss_out( 6)               <= std_logic_vector(cop0_DCIC);                  
+   ss_out( 8)               <= std_logic_vector(cop0_BDAM);                  
+   ss_out( 9)               <= std_logic_vector(cop0_BPCM);                  
+   ss_out(10)               <= std_logic_vector(cop0_SR);                    
+   ss_out(11)               <= std_logic_vector(cop0_CAUSE);                 
+   ss_out(12)               <= std_logic_vector(cop0_EPC);                   
+   ss_out(13)               <= std_logic_vector(cop0_PRID);                  
                                                  
    ss_out(56)               <= std_logic_vector(CACHECONTROL);               
                                              
@@ -2064,6 +2034,17 @@ begin
                               
             pcOld3                           <= unsigned(ss_in(22));
             opcode3                          <= unsigned(ss_in(17));
+                              
+            cop0_BPC                         <= unsigned(ss_in(3));
+            cop0_BDA                         <= unsigned(ss_in(4));
+            cop0_JUMPDEST                    <= unsigned(ss_in(5));
+            cop0_DCIC                        <= unsigned(ss_in(6));
+            cop0_BDAM                        <= unsigned(ss_in(8));
+            cop0_BPCM                        <= unsigned(ss_in(9));
+            cop0_SR                          <= unsigned(ss_in(10));
+            cop0_CAUSE                       <= unsigned(ss_in(11));
+            cop0_EPC                         <= unsigned(ss_in(12));
+            cop0_PRID                        <= unsigned(ss_in(13)); -- x"00000002";
                               
             CACHECONTROL                     <= unsigned(ss_in(56));
                         
@@ -2114,6 +2095,26 @@ begin
                   
                   writebackGTEReadEnable       <= executeGTEReadEnable;
                   WBgte_writeAddr              <= '0' & executeGTETarget;
+                  
+                  if (executeCOP0WriteEnable = '1') then
+                     case (to_integer(executeCOP0WriteDestination)) is
+                        when 16#3# => cop0_BPC   <= executeCOP0WriteValue;
+                        when 16#5# => cop0_BDA   <= executeCOP0WriteValue;
+                        when 16#7# => cop0_DCIC  <= executeCOP0WriteValue and x"FF80F03F";
+                        when 16#9# => cop0_BDAM  <= executeCOP0WriteValue;
+                        when 16#B# => cop0_BPCM  <= executeCOP0WriteValue;
+                        when 16#C# => cop0_SR    <= executeCOP0WriteValue and x"F27FFF3F";
+                        when 16#D# => cop0_CAUSE <= executeCOP0WriteValue and x"00000300";
+                        when others => null;
+                     end case;
+                  end if;
+                  
+                  if (executeException = '1') then
+                     cop0_SR        <= exception_SR;
+                     cop0_CAUSE     <= exception_CAUSE;
+                     cop0_EPC       <= exception_EPC;  
+                     cop0_JUMPDEST  <= exception_JMP;  
+                  end if;
                   
                   writebackWriteEnable <= '0';
                   if (executeReadEnable = '1') then
@@ -2254,6 +2255,8 @@ begin
                   end case;
                end if;   
             end if;
+   
+            cop0_CAUSE(10) <= irqRequest;
    
          end if;
       end if;
@@ -2495,7 +2498,7 @@ begin
          end if;
       
          SS_idle <= '0';
-         if (hiloWait = 0 and blockIRQ = '0' and (irqRequest = '0' or cop0_SR(0) = '0')) then
+         if (hiloWait = 0 and blockIRQ = '0' and (irqRequest = '0' or cop0_SR(0) = '0' or cop0_SR_next(10) = '0')) then
             SS_idle <= '1';
          end if;
       

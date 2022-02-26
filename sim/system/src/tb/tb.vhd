@@ -1,8 +1,6 @@
 library IEEE;
 use IEEE.std_logic_1164.all;  
 use IEEE.numeric_std.all;     
-library STD;    
-use STD.textio.all;
 
 library tb;
 library psx;
@@ -81,6 +79,7 @@ architecture arch of etb is
    signal ram_128             : std_logic;
    signal ram_done            : std_logic;   
    signal ram_reqprocessed    : std_logic;   
+   signal ram_idle            : std_logic;   
    signal ram_refresh         : std_logic;   
    
    -- ddrram
@@ -137,13 +136,9 @@ architecture arch of etb is
    signal MouseY              : signed(8 downto 0) := to_signed(-1,9);
    
    --cd
-   type ttracknames is array(0 to 99) of string(1 to 255);
-   signal tracknames : ttracknames;
-   
    type filetype is file of integer;
-   type t_data is array(0 to (2**28)-1) of integer;
+   type t_cddata is array(0 to (2**28)-1) of integer;
    signal cdLoaded            : std_logic := '0';
-   signal cdTrack             : std_logic_vector(7 downto 0) := x"FF";
    
    signal cd_req              : std_logic;
    signal cd_addr             : std_logic_vector(26 downto 0) := (others => '0');
@@ -155,12 +150,6 @@ architecture arch of etb is
    signal cd_hps_data         : std_logic_vector(15 downto 0);
 
    signal cdSize              : unsigned(29 downto 0);
-   
-   signal trackinfo_data      : std_logic_vector(31 downto 0);
-   signal trackinfo_addr      : std_logic_vector(8 downto 0);
-   signal trackinfo_write     : std_logic := '0';
-   
-   signal multitrack          : std_logic := '1';
    
    -- spu
    signal spuram_dataWrite    : std_logic_vector(31 downto 0);
@@ -225,17 +214,16 @@ begin
       loadExe               => psx_LoadExe(0),
       fastboot              => '0',
       FASTMEM               => '0',
-      REPRODUCIBLEGPUTIMING => '1',
-      REPRODUCIBLEDMATIMING => '1',
+      REPRODUCIBLEGPUTIMING => '0',
+      REPRODUCIBLEDMATIMING => '0',
       DMABLOCKATONCE        => '0',
-      multitrack            => multitrack,
-      INSTANTSEEK           => '1',
+      INSTANTSEEK           => '0',
       ditherOff             => '0',
       fpscountOn            => '0',
       errorOn               => '0',
       noTexture             => '0',
       SPUon                 => '1',
-      SPUSDRAM              => '1',
+      SPUSDRAM              => '0',
       REVERBOFF             => '0',
       REPRODUCIBLESPUDMA    => '0',
       -- RAM/BIOS interface        
@@ -250,6 +238,7 @@ begin
       ram_128               => ram_128,      
       ram_done              => ram_done,
       ram_reqprocessed      => ram_reqprocessed,
+      ram_idle              => ram_idle,
       -- vram/ddr3 interface
       DDRAM_BUSY            => DDRAM_BUSY,      
       DDRAM_BURSTCNT        => DDRAM_BURSTCNT,  
@@ -263,13 +252,7 @@ begin
       -- cd
       region                => "00",
       hasCD                 => '1',
-      newCD                 => reset,
-      LIDopen               => '0',
       fastCD                => '0',
-      libcryptKey           => x"0000",
-      trackinfo_data        => trackinfo_data,
-      trackinfo_addr        => trackinfo_addr, 
-      trackinfo_write       => trackinfo_write,
       cd_Size               => cdSize,
       cd_req                => cd_req,
       cd_addr               => cd_addr,
@@ -277,7 +260,7 @@ begin
       cd_done               => '0',
       cd_hps_on             => '1',
       cd_hps_req            => cd_hps_req,  
-      cd_hps_lba_sim        => cd_hps_lba,  
+      cd_hps_lba            => cd_hps_lba,  
       cd_hps_ack            => cd_hps_ack,  
       cd_hps_write          => cd_hps_write,
       cd_hps_data           => cd_hps_data, 
@@ -313,7 +296,7 @@ begin
       memcard2_dataOut      => memcard2_dataOut,  
       -- video
       videoout_on           => '1',
-      isPal                 => '0',
+      isPal                 => '1',
       pal60                 => '0',
       hblank                => hblank,  
       vblank                => vblank,  
@@ -325,14 +308,10 @@ begin
       -- Keys - all active high
       PadPortEnable1        => '1',
       PadPortAnalog1        => '0',
-      PadPortMouse1         => '0',
-      PadPortGunCon1        => '0',
-      PadPortneGcon1        => '0',
+      PadPortMouse1         => '1',
       PadPortEnable2        => '1',
       PadPortAnalog2        => '0',
       PadPortMouse2         => '0', 
-      PadPortGunCon2        => '0',
-      PadPortneGcon2        => '0',
       KeyTriangle           => KeyTriangle,           
       KeyCircle             => KeyCircle,           
       KeyCross              => KeyCross,           
@@ -372,14 +351,7 @@ begin
       savestate_number      => 0,
       state_loaded          => open,
       rewind_on             => '0',
-      rewind_active         => '0',
-      -- cheats
-      cheat_clear           => '0',
-      cheats_enabled        => '0',
-      cheat_on              => '0',
-      cheat_in              => (127 downto 0 => '0'),
-      Cheats_BusReadData    => (31 downto 0 => '0'),
-      Cheats_BusDone        => '0'
+      rewind_active         => '0'
    );
    
    iddrram_model : entity tb.ddrram_model
@@ -423,7 +395,7 @@ begin
       do32         => ram_dataRead32,
       done         => ram_done,
       reqprocessed => ram_reqprocessed,
-      ram_idle     => open
+      ram_idle     => ram_idle
    );
    
    ispu_ram : entity work.sdram_model3x 
@@ -453,33 +425,9 @@ begin
       ram_idle     => open
    );
    
-      -- hps emulation
+   -- hps emulation
    process
-      file infile          : text;
-      variable f_status    : FILE_OPEN_STATUS;
-      variable inLine      : LINE;
-      variable count       : integer;
-   begin
-
-      if (multitrack = '1') then
-         file_open(f_status, infile, "R:\cdtracks.txt", read_mode);
-   
-         count := 1;
-         while (not endfile(infile)) loop
-            readline(infile,inLine);
-            tracknames(count) <= (others => ' ');
-            tracknames(count)(1 to inLine'length) <= inLine(1 to inLine'length); 
-            count := count + 1;
-         end loop;
-         
-         file_close(infile);
-      end if;
-      
-      wait;
-   end process;
-   
-   process
-      variable data           : t_data := (others => 0);
+      variable data           : t_cddata := (others => 0);
       file infile             : filetype;
       variable f_status       : FILE_OPEN_STATUS;
       variable read_byte0     : std_logic_vector(7 downto 0);
@@ -520,9 +468,9 @@ begin
       end;
    begin
       
-      if (cdLoaded = '0' and multitrack = '1') then
+      if (cdLoaded = '0') then
       
-         file_open(f_status, infile, "R:\\cuedata.bin", read_mode);
+         file_open(f_status, infile, "x", read_mode);
          
          targetpos := 0;
          
@@ -537,55 +485,13 @@ begin
          
          file_close(infile);
          
-         wait for 10 us;
-         for i in 0 to 400 loop
-            trackinfo_data  <= std_logic_vector(to_signed(data(i), 32));
-            trackinfo_addr  <= std_logic_vector(to_unsigned(i, 9));
-            trackinfo_write <= '1';
-            wait until rising_edge(clk33);
-            trackinfo_write <= '0';
-            wait until rising_edge(clk33);
-         end loop;
-
+         cdSize <= to_unsigned(targetpos * 4, 30);
          cdLoaded <= '1';
       end if;
    
    
       wait until rising_edge(clk33);
-      if (cd_hps_req = '1' or (multitrack = '0' and cdLoaded = '0')) then
-      
-         -- load new track if required
-         if ((multitrack = '1' and cdTrack /= cd_hps_lba(31 downto 24)) or (multitrack = '0' and cdLoaded = '0')) then
-         
-            if (multitrack = '1') then
-               cdTrack <= cd_hps_lba(31 downto 24);
-               report "Loading new File";
-               report tracknames(to_integer(unsigned(cd_hps_lba(31 downto 24))));
-               file_open(f_status, infile, tracknames(to_integer(unsigned(cd_hps_lba(31 downto 24)))), read_mode);
-            else
-               cdLoaded <= '1';
-               file_open(f_status, infile, "C:\Projekte\psx\WipEout (Europe) (Track 01).bin", read_mode);
-            end if;
-            
-            targetpos := 0;
-            
-            while (not endfile(infile)) loop
-               
-               read(infile, next_int);  
-               
-               data(targetpos) := next_int;
-               targetpos       := targetpos + 1;
-   
-            end loop;
-            
-            file_close(infile);
-            cdSize <= to_unsigned(targetpos * 4, 30);
-            
-         end if;
-      end if;
-      
       if (cd_hps_req = '1') then
-      
          for i in 0 to 100 loop
             wait until rising_edge(clk33);
          end loop;
@@ -595,7 +501,7 @@ begin
          wait until rising_edge(clk33);
          
          for i in 0 to 587 loop
-            cdData := std_logic_vector(to_signed(data(to_integer(unsigned(cd_hps_lba(23 downto 0))) * (2352 / 4) + i), 32));
+            cdData := std_logic_vector(to_signed(data(to_integer(unsigned(cd_hps_lba)) * (2352 / 4) + i), 32));
             
             cd_hps_data  <= cdData(15 downto 0);
             cd_hps_write <= '1';

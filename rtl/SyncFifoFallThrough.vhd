@@ -6,25 +6,23 @@ use ieee.math_real.all;
 entity SyncFifoFallThrough is
    generic 
    (
-      SIZE              : integer;
-      DATAWIDTH         : integer;
-      NEARFULLDISTANCE  : integer;
-      NEAREMPTYDISTANCE : integer := 0
+      SIZE             : integer;
+      DATAWIDTH        : integer;
+      NEARFULLDISTANCE : integer
    );
    port 
    ( 
-      clk         : in  std_logic;
-      reset       : in  std_logic;
-                  
-      Din         : in  std_logic_vector(DATAWIDTH - 1 downto 0);
-      Wr          : in  std_logic; 
-      Full        : out std_logic := '0';
-      NearFull    : out std_logic := '0';
-         
-      Dout        : out std_logic_vector(DATAWIDTH - 1 downto 0) := (others => '0');
-      Rd          : in  std_logic;
-      Empty       : out std_logic := '1';
-      NearEmpty   : out std_logic := '0'
+      clk      : in  std_logic;
+      reset    : in  std_logic;
+               
+      Din      : in  std_logic_vector(DATAWIDTH - 1 downto 0);
+      Wr       : in  std_logic; 
+      Full     : out std_logic := '0';
+      NearFull : out std_logic := '0';
+      
+      Dout     : out std_logic_vector(DATAWIDTH - 1 downto 0) := (others => '0');
+      Rd       : in  std_logic;
+      Empty    : out std_logic := '1'
    );
 end;
 
@@ -72,12 +70,6 @@ begin
                NearFull <= '0';
             else
                NearFull <= '1';
-            end if;            
-            
-            if (fifocnt >= NEAREMPTYDISTANCE) then
-               NearEmpty <= '0';
-            else
-               NearEmpty <= '1';
             end if;
          
             if (Wr = '1' and full_wire = '0') then

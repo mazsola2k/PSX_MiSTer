@@ -35,8 +35,7 @@ entity gpu_vram2cpu is
       
       Fifo_Dout            : out std_logic_vector(31 downto 0);
       Fifo_Rd              : in  std_logic;
-      Fifo_Empty           : out std_logic;
-      Fifo_ready           : out std_logic
+      Fifo_Empty           : out std_logic
    );
 end entity;
 
@@ -67,13 +66,11 @@ architecture arch of gpu_vram2cpu is
    signal drawTiming    : unsigned(6 downto 0);
    
    --fifo
-   signal Fifo_Din         : std_logic_vector(31 downto 0);
-   signal Fifo_Wr          : std_logic; 
-   signal Fifo_NearFull    : std_logic;
-   signal Fifo_NearEmpty   : std_logic;
-   signal Fifo_Reset       : std_logic;
-      
-   signal Fifo_wordhalf    : std_logic;
+   signal Fifo_Din      : std_logic_vector(31 downto 0);
+   signal Fifo_Wr       : std_logic; 
+   signal Fifo_NearFull : std_logic;
+   
+   signal Fifo_wordhalf : std_logic;
   
 begin 
 
@@ -87,31 +84,27 @@ begin
    vramLineEna       <= '1'  when (state = WRITING or state = WAITREAD or state = WAITIMING) else '0';
    vramLineAddr      <= xSrc when (state = WRITING or state = WAITREAD or state = WAITIMING) else (others => '0');
    
-   Fifo_ready <= '1' when (Fifo_NearEmpty = '0' or (state = IDLE and Fifo_Empty = '0')) else '0';
-   
    -- fifo has size of two full lines. Filling can start whenever at least a full line fits in.
    ififo: entity mem.SyncFifoFallThrough
    generic map
    (
-      SIZE              => 1024,
-      DATAWIDTH         => 32,
-      NEARFULLDISTANCE  => 500,
-      NEAREMPTYDISTANCE => 16
+      SIZE             => 1024,
+      DATAWIDTH        => 32,
+      NEARFULLDISTANCE => 500
    )
    port map
    ( 
-      clk         => clk2x,     
-      reset       => Fifo_Reset,   
-                  
-      Din         => Fifo_Din,     
-      Wr          => Fifo_Wr,      
-      Full        => open,    
-      NearFull    => Fifo_NearFull,
-   
-      Dout        => Fifo_Dout,    
-      Rd          => Fifo_Rd,      
-      Empty       => Fifo_Empty,
-      NearEmpty   => Fifo_NearEmpty      
+      clk      => clk2x,     
+      reset    => reset,   
+                
+      Din      => Fifo_Din,     
+      Wr       => Fifo_Wr,      
+      Full     => open,    
+      NearFull => Fifo_NearFull,
+
+      Dout     => Fifo_Dout,    
+      Rd       => Fifo_Rd,      
+      Empty    => Fifo_Empty   
    );
    
    
@@ -119,13 +112,11 @@ begin
    begin
       if rising_edge(clk2x) then
          
-         Fifo_Wr    <= '0';
-         Fifo_Reset <= '0';
+         Fifo_Wr <= '0';
          
          if (reset = '1') then
          
-            state       <= IDLE;
-            Fifo_Reset  <= '1';
+            state <= IDLE;
          
          elsif (ce = '1') then
             
@@ -145,7 +136,6 @@ begin
                   end if;
                   
                when REQUESTWORD2 =>
-                  Fifo_Reset   <= '1';
                   if (fifo_Valid = '1') then
                      state    <= REQUESTWORD3;  
                      srcX <= unsigned(fifo_data( 9 downto  0));
@@ -214,8 +204,8 @@ begin
                      Fifo_wordhalf          <= '0';
                      Fifo_Wr                <= '1';
                   end if;
-                  state       <= IDLE;
-                  done        <= '1';
+                  state <= IDLE;
+                  done  <= '1';
             
             end case;
          

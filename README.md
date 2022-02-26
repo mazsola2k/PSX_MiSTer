@@ -6,14 +6,12 @@ SDRAM of any size is required.
 
 ## Features
 * Savestates
-* Option for core pause when OSD is open
-* Optional manual Memory Card file loading (.MCD)
-* CUE+BIN and CHD format support
-* Multiple Disc Game support with Lid open/close toggle
-* Fast Boot (Skips BIOS)
+* Memory Card file loading (.MCD)
+* CUE+BIN format support
+* Instant CD-ROM Seek (disables simulation of motor delay)
+* Fast Boot
 * Dithering On/Off Toggle
 * Bob or Weave Deinterlacing
-* Inputs: Digital, Analog, Mouse, NeGcon, and Guncon support.
 
 ## Bios
 Rename your playstation bios file (e.g. `scph-1001.bin`/`ps-22a.bin` ) to `boot.rom` and place it in the `./games/PSX/` folder.
@@ -24,15 +22,6 @@ You can also place a cd_bios.rom in the same directory as the CD or 1 directory 
 One card can be mounted for each controller slot. Cards are in raw .mcd format. An empty formatted .mcd file is available for [download here](https://github.com/MiSTer-devel/PSX_MiSTer/raw/main/memcard/empty.mcd).
 
 You need to save them either manually in the OSD or turn on autosave. Saving or loading a card will pause the core for a short time.
-
-## Multiple Disc Games
-To swap discs while the game is running, you will need have all of the disc files for the game placed in the same folder. Then when loading a new disc for most games you will need to toggle the Lid Open/Close option to tell the game you have opened the lid and closed it. Example folder structure of a multi disc game:
-
-```
-/media/fat/games/PSX/Final Fantasy VII (USA)/Final Fantasy VII (USA) (Disc 1).chd
-/media/fat/games/PSX/Final Fantasy VII (USA)/Final Fantasy VII (USA) (Disc 2).chd
-/media/fat/games/PSX/Final Fantasy VII (USA)/Final Fantasy VII (USA) (Disc 3).chd
-```
 
 ## Video output
 Core uses either normal output or direct framebuffer mode.
@@ -66,31 +55,6 @@ List of Errors:
 ## Debug Options
 
 The debug menu is intended for use by developers only. They don't really serve any purpose for regular users so it's best to leave them at their default setting as a lot of undesirable behavior could occur.
-
-## Pad Options
-The following pad types are emulated by the core and can be independently assigned to each port:
-- Digital  
-  (ID 0x41) Ten button digital pad.
-- Analog  
-  (ID 0x73) Twinstick pad.  
-  Currently does not support rumble function or the configuration protocol, so older games might not detect it.
-- Mouse  
-  (ID 0x12) Two button mouse.
-- Off  
-  Pad unplugged from port.
-- GunCon  
-  (ID 0x62) GunCon compatible lightgun.
-- NeGcon  
-  (ID 0x23) NeGcon compatible racing pad.  
-  Primarily developed for dual analog stick usage with the following mapping (genuine NeGcons  
-   may work if usb adapters map steering to Left Analog and I/II to Right Analog):
-   - Steering -> Left Analog
-   - Circle -> Circle
-   - Triangle -> Triangle
-   - I -> Right Analog Up, Cross (100% pressed), R2 (100% pressed)
-   - II -> Right Analog Down, Rectangle (100% pressed), L2 (100% pressed)
-   - L -> L1 (100% pressed)
-   - R -> R1
 
 ## Status
 

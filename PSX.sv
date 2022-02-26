@@ -230,19 +230,14 @@ wire reset = RESET | buttons[1] | status[0] | bios_download | cart_download | cd
 // 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// XXXXX XXX XXXXXXXXXXXXXX XXXXXXX XXXXXXXXXXXXXXXXXXXXXXXX       X
+// X XXX XXX XXXXXXXXXXXXXX XXXXXXX XXXXXXXXXXXXXXXXXXXXX          X
 
 `include "build_id.v"
 parameter CONF_STR = {
 	"PSX;SS3E000000:400000;",
-	"S1,CUECHD,Load CD;",
+	"S1,ISOCUE,Load CD;",
 	"F1,EXE,Load Exe;",
 	//"h1FS2,ISOBIN,Load to SDRAM2;",
-	"-;",
-	"oJ,CD Lid,Closed,Open;",
-	"-;",
-	"C,Cheats;",
-	"O6,Cheats Enabled,Yes,No;",
 	"-;",
 	"SC2,SAVMCD,Mount Memory Card 1;",
 	"SC3,SAVMCD,Mount Memory Card 2;",
@@ -258,9 +253,13 @@ parameter CONF_STR = {
 	"RI,Restore state (F1);",
 	"-;",
 	"o78,System Type,NTSC-U,NTSC-J,PAL;",
-	"-;",
-	"oDF,Pad1,Digital,Analog,Mouse,Off,GunCon,NeGcon;",
-	"oGI,Pad2,Digital,Analog,Mouse,Off,GunCon,NeGcon;",
+   "-;",
+	"oDF,Pad1,Digital,Analog,Mouse,Off,GunCon;",
+	"oGI,Pad2,Digital,Analog,Mouse,Off,GunCon;",
+   "-;",
+	"OG,Fastboot,Off,On;",
+	"d1oC,SPU RAM select,DDR3,SDRAM2;",
+	"OP,Pause when OSD is open,Off,On;",
 	"-;",
 	"OS,FPS Overlay,Off,On;",
 	"OT,Error Overlay,On,Off;",
@@ -270,38 +269,28 @@ parameter CONF_STR = {
 	"P1-;",
 	"P1o01,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"P1o23,Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
-	"P1-;",
 	"P1OM,Dithering,On,Off;",
 	"P1o9,Deinterlacing,Weave,Bob;",
 	"P1-;",
-	"d1P1oC,SPU RAM select,DDR3,SDRAM2;",
 	"P1O78,Stereo Mix,None,25%,50%,100%;",
 
-	"P2,Miscellaneous;",
+   "P2,Debug;",
 	"P2-;",
-	"P2OG,Fastboot,Off,On;",
-	"P2OP,Pause when OSD is open,Off,On;",
-	"-;",
-
-	"P3,Debug;",
-	"P3-;",
-	"P3OE,DDR3 Framebuffer,Off,On;",
-	"P3OA,DDR3 FB Color,16,24;",
-	"P3OB,VRAMViewer,Off,On;",
-	"P3OU,Sound,On,Off;",
-	"P3oA,SPU Reverb,On,Off;",
-	"P3OV,Fast Memory,Off,On;",
-	"P3OJ,RepTimingGPU,Off,On;",
-	"P3OK,RepTimingDMA,Off,On;",
-	"P3oB,RepTimingSPUDMA,Off,On;",
-	"P3OQ,DMAinBLOCKs,Off,On;",
-	"P3oL,CD Singletrack,Off,On;",
-	"P3OL,CD Instant Seek,Off,On;",
-	"P3oK,CD Inserted,Yes,No;",
-	"P3OF,Force 60Hz PAL,Off,On;",
-	"P3OR,Textures,On,Off;",
-	"P3oM,Patch TTY,Off,On;",
-	"P3T1,Advance Pause;",
+	"P2OE,DDR3 Framebuffer,Off,On;",
+	"P2OA,DDR3 FB Color,16,24;",
+	"P2OB,VRAMViewer,Off,On;",
+	"P2OU,Sound,On,Off;",
+	"P2oA,SPU Reverb,On,Off;",
+	"P2OV,Fast Memory,Off,On;",
+	"P2OJ,RepTimingGPU,Off,On;",
+	"P2OK,RepTimingDMA,Off,On;",
+	"P2oB,RepTimingSPUDMA,Off,On;",
+	"P2OQ,DMAinBLOCKs,Off,On;",
+	"P2OL,CD Instant Seek,Off,On;",
+	"P2oJ,CD Lid,Closed,Open;",
+	"P2oK,CD Inserted,Yes,No;",
+	"P2OF,Force 60Hz PAL,Off,On;",
+	"P2OR,Textures,On,Off;",
 
 	"- ;",
 	"R0,Reset;",
@@ -320,7 +309,7 @@ parameter CONF_STR = {
 	"Save to state 3,",
 	"Restore state 3,",
 	"Save to state 4,",
-	"Restore state 4,",
+	"Restore state 4;",
 	"Rewinding...;",
 	"V,v",`BUILD_DATE
 };
@@ -434,14 +423,13 @@ assign sd_wr[1] = 0;
 
 //////////////////////////  ROM DETECT  /////////////////////////////////
 
-reg bios_download, cart_download, cd_download, sbi_download, cdinfo_download, code_download;
+reg bios_download, cart_download, cd_download, sbi_download;
 always @(posedge clk_1x) begin
-	bios_download    <= ioctl_download & (ioctl_index == 0);
-	cart_download    <= ioctl_download & (ioctl_index == 1);
-	cd_download      <= ioctl_download & (ioctl_index[5:0] == 2);
-	sbi_download     <= ioctl_download & (ioctl_index == 250);
-	cdinfo_download  <= ioctl_download & (ioctl_index == 251);
-	code_download    <= ioctl_download & (ioctl_index == 255);
+	//code_download <= ioctl_download & &ioctl_index;
+	bios_download <= ioctl_download & (ioctl_index == 0);
+	cart_download <= ioctl_download & (ioctl_index == 1);
+	cd_download   <= ioctl_download & (ioctl_index[5:0] == 2);
+	sbi_download  <= ioctl_download & (ioctl_index == 250);
 end
 
 reg cart_loaded = 0;
@@ -460,7 +448,6 @@ reg        ramdownload_wr;
 
 reg[29:0]  cd_Size;
 reg        hasCD = 0;
-reg        newCD = 0;
 
 reg cart_download_1 = 0;
 reg cd_download_1 = 0;
@@ -488,19 +475,17 @@ reg [15:0] libcryptKey;
 
 always @(posedge clk_1x) begin
 	ramdownload_wr <= 0;
-	if(cart_download | bios_download | cd_download | cdinfo_download) begin
+	if(cart_download | bios_download | cd_download) begin
       if (ioctl_wr) begin
          if(~ioctl_addr[1]) begin
             ramdownload_wrdata[15:0] <= ioctl_dout;
-            if (bios_download)         ramdownload_wraddr  <= ioctl_addr[26:0] + BIOS_START[26:0];
-            else if (cart_download)    ramdownload_wraddr  <= ioctl_addr[26:0] + EXE_START[26:0];                          
-            else if (cd_download)      ramdownload_wraddr  <= ioctl_addr[26:0];      
-            else if (cdinfo_download)  ramdownload_wraddr  <= ioctl_addr[26:0];      
+            if (bios_download)      ramdownload_wraddr  <= ioctl_addr[26:0] + BIOS_START[26:0];
+            else if (cart_download) ramdownload_wraddr  <= ioctl_addr[26:0] + EXE_START[26:0];                          
+            else if (cd_download)   ramdownload_wraddr  <= ioctl_addr[26:0] ;      
          end else begin
             ramdownload_wrdata[31:16] <= ioctl_dout;
             ramdownload_wr            <= 1;
             ioctl_wait                <= 1;
-            if (cdinfo_download) ioctl_wait <= 0;
          end
       end
       if(sdram_writeack | sdram_writeack2) ioctl_wait <= 0;
@@ -521,13 +506,11 @@ always @(posedge clk_1x) begin
       libcryptKey <= ioctl_dout;
    end
      
-   newCD <= 0;
    if (img_mounted[1]) begin
       if (img_size > 0) begin
          cd_Size     <= img_size[29:0];
          cd_hps_on   <= 1;
          hasCD       <= 1;
-         newCD       <= 1;
       end else begin
          hasCD     <= 0;
       end
@@ -606,42 +589,16 @@ defparam savestate_ui.INFO_TIMEOUT_BITS = 27;
 // 000 -> mouse
 // 011 -> off
 // 100 -> Namco GunCon lightgun
-// 101 -> Namco NeGcon
-// 110..111 -> reserved
+// 101..111 -> reserved
 
 wire PadPortEnable1 = (status[47:45] != 3'b011);
 wire PadPortAnalog1 = (status[47:45] == 3'b001);
 wire PadPortMouse1  = (status[47:45] == 3'b010);
 wire PadPortGunCon1 = (status[47:45] == 3'b100);
-wire PadPortNeGcon1 = (status[47:45] == 3'b101);
-
 wire PadPortEnable2 = (status[50:48] != 3'b011);
 wire PadPortAnalog2 = (status[50:48] == 3'b001);
 wire PadPortMouse2  = (status[50:48] == 3'b010);
 wire PadPortGunCon2 = (status[50:48] == 3'b100);
-wire PadPortNeGcon2 = (status[50:48] == 3'b101);
-
-
-////////////////////////////  PAUSE  ///////////////////////////////////
-reg paused = 0;
-reg [9:0] unpause = 0;
-reg status1_1;
-
-always @(posedge clk_1x) begin
-
-   paused <= 0;
-   if (status[25] & OSD_STATUS & (unpause == 0)) begin
-      paused <= 1;
-   end
-   
-   status1_1 <= status[1];
-   if (status[1] & ~status1_1) begin
-      unpause <= 1023;
-   end else if (unpause > 0) begin
-      unpause <= unpause - 1'd1;
-   end
-
-end
 
 ////////////////////////////  SYSTEM  ///////////////////////////////////
 
@@ -652,19 +609,17 @@ psx
    .clk2x(clk_2x),
    .reset(reset),
    // commands 
-   .pause(paused),
+   .pause(status[25] & OSD_STATUS),
    .loadExe(loadExe),
    .fastboot(status[16]),
    .FASTMEM(status[31]),
    .REPRODUCIBLEGPUTIMING(status[19]),
    .REPRODUCIBLEDMATIMING(status[20]),
    .DMABLOCKATONCE(status[26]),
-   .multitrack(~status[53]),
    .INSTANTSEEK(status[21]),
    .ditherOff(status[22]),
    .fpscountOn(status[28]),
    .errorOn(~status[29]),
-   .PATCHSERIAL(status[54]),
    .noTexture(status[27]),
    .SPUon(~status[30]),
    .SPUSDRAM(status[44] & SDRAM2_EN),
@@ -695,13 +650,9 @@ psx
    // cd
    .region          (status[40:39]),
    .hasCD           (hasCD && ~status[52]),
-   .newCD           (newCD),
    .LIDopen         (status[51]),
    .fastCD          (0),
    .libcryptKey     (libcryptKey),
-   .trackinfo_data  (ramdownload_wrdata),
-   .trackinfo_addr  (ramdownload_wraddr[10:2]),
-   .trackinfo_write (ramdownload_wr && cdinfo_download),
    .cd_Size         (cd_Size),
    .cd_req          (cd_req),
    .cd_addr         (cd_addr),
@@ -766,12 +717,10 @@ psx
    .PadPortAnalog1 (PadPortAnalog1),
    .PadPortMouse1  (PadPortMouse1 ),
    .PadPortGunCon1 (PadPortGunCon1),
-   .PadPortNeGcon1 (PadPortNeGcon1),
    .PadPortEnable2 (PadPortEnable2),
    .PadPortAnalog2 (PadPortAnalog2),
    .PadPortMouse2  (PadPortMouse2 ),
    .PadPortGunCon2 (PadPortGunCon2),
-   .PadPortNeGcon2 (PadPortNeGcon2),
    .KeyTriangle({joy2[4], joy[4] }),    
    .KeyCircle  ({joy2[5] ,joy[5] }),       
    .KeyCross   ({joy2[6] ,joy[6] }),       
@@ -811,21 +760,7 @@ psx
    .savestate_number      (ss_slot),
    .state_loaded          (),
    .rewind_on             (0), //(status[27]),
-   .rewind_active         (0), //(status[27] & joy[15]),
-   //cheats
-   .cheat_clear(gg_reset),
-   .cheats_enabled(~status[6]),
-   .cheat_on(gg_valid),
-   .cheat_in(gg_code),
-   .cheats_active(gg_active),
-
-   .Cheats_BusAddr(cheats_addr),
-   .Cheats_BusRnW(cheats_rnw),
-   .Cheats_BusByteEnable(cheats_be),
-   .Cheats_BusWriteData(cheats_dout),
-   .Cheats_Bus_ena(cheats_ena),
-   .Cheats_BusReadData(cheats_din),
-   .Cheats_BusDone(cheats_done)
+   .rewind_active         (0)  //(status[27] & joy[15])
 );
 
 ////////////////////////////  MEMORY  ///////////////////////////////////
@@ -851,14 +786,6 @@ wire         sdram_writeack;
 wire         sdram_writeack2;
 wire         sdram_rnw;
 wire         sdram_128;
-
-wire [20:0] cheats_addr;
-wire cheats_rnw;
-wire [3:0] cheats_be;
-wire [31:0] cheats_dout;
-wire cheats_ena;
-wire [31:0] cheats_din;
-wire cheats_done;
 
 assign sdram_ack = sdram_readack | sdram_writeack;
 
@@ -902,13 +829,12 @@ sdram sdram
    .ch2_be   ((cart_download | bios_download) ? 4'b1111            : sdram_be),
 	.ch2_ready(sdram_writeack),
 
-	.ch3_addr(cheats_addr),
-	.ch3_din(cheats_dout),
-	.ch3_dout(cheats_din),
-	.ch3_req(cheats_ena),
-	.ch3_rnw(cheats_rnw),
-	.ch3_be(cheats_be),
-	.ch3_ready(cheats_done)
+	.ch3_addr(0),
+	.ch3_din(),
+	.ch3_dout(),
+	.ch3_req(1'b0),
+	.ch3_rnw(1'b1),
+	.ch3_ready()
 );
 
 wire        cd_req;
@@ -1046,35 +972,35 @@ video_freak video_freak
 //  127:96          95:64         63:32         31:0
 // Integer values are in BIG endian byte order, so it up to the loader
 // or generator of the code to re-arrange them correctly.
-reg [127:0] gg_code;
-reg gg_valid;
-reg gg_reset;
-reg code_download_1;
-wire gg_active;
-always_ff @(posedge clk_1x) begin
-
-   gg_reset <= 0;
-   code_download_1 <= code_download;
-	if (code_download && ~code_download_1) begin
-      gg_reset <= 1;
-   end
-
-   gg_valid <= 0;
-	if (code_download & ioctl_wr) begin
-		case (ioctl_addr[3:0])
-			0:  gg_code[111:96]  <= ioctl_dout; // Flags Bottom Word
-			2:  gg_code[127:112] <= ioctl_dout; // Flags Top Word
-			4:  gg_code[79:64]   <= ioctl_dout; // Address Bottom Word
-			6:  gg_code[95:80]   <= ioctl_dout; // Address Top Word
-			8:  gg_code[47:32]   <= ioctl_dout; // Compare Bottom Word
-			10: gg_code[63:48]   <= ioctl_dout; // Compare top Word
-			12: gg_code[15:0]    <= ioctl_dout; // Replace Bottom Word
-			14: begin
-				gg_code[31:16]    <= ioctl_dout; // Replace Top Word
-				gg_valid          <= 1;          // Clock it in
-			end
-		endcase
-	end
-end
+//reg [127:0] gg_code;
+//reg gg_valid;
+//reg gg_reset;
+//reg ioctl_download_1;
+//wire gg_active;
+//always_ff @(posedge clk_1x) begin
+//
+//   gg_reset <= 0;
+//   ioctl_download_1 <= ioctl_download;
+//	if (ioctl_download && ~ioctl_download_1 && ioctl_index == 255) begin
+//      gg_reset <= 1;
+//   end
+//
+//   gg_valid <= 0;
+//	if (code_download & ioctl_wr) begin
+//		case (ioctl_addr[3:0])
+//			0:  gg_code[111:96]  <= ioctl_dout; // Flags Bottom Word
+//			2:  gg_code[127:112] <= ioctl_dout; // Flags Top Word
+//			4:  gg_code[79:64]   <= ioctl_dout; // Address Bottom Word
+//			6:  gg_code[95:80]   <= ioctl_dout; // Address Top Word
+//			8:  gg_code[47:32]   <= ioctl_dout; // Compare Bottom Word
+//			10: gg_code[63:48]   <= ioctl_dout; // Compare top Word
+//			12: gg_code[15:0]    <= ioctl_dout; // Replace Bottom Word
+//			14: begin
+//				gg_code[31:16]    <= ioctl_dout; // Replace Top Word
+//				gg_valid          <= 1;          // Clock it in
+//			end
+//		endcase
+//	end
+//end
 
 endmodule

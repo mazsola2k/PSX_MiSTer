@@ -23,14 +23,6 @@ entity gpu is
       fpscountOn           : in  std_logic;
       noTexture            : in  std_logic;
       debugmodeOn          : in  std_logic;
-
-      Gun1CrosshairOn      : in  std_logic;
-      Gun1X                : in  unsigned(7 downto 0);
-      Gun1Y_scanlines      : in  unsigned(8 downto 0);
-
-      Gun2CrosshairOn      : in  std_logic;
-      Gun2X                : in  unsigned(7 downto 0);
-      Gun2Y_scanlines      : in  unsigned(8 downto 0);
       
       cdSlow               : in  std_logic;
       
@@ -440,7 +432,7 @@ begin
    GPUSTAT_DMADataRequest <= '0' when (GPUSTAT_DMADirection = "00") else
                              GPUSTAT_ReadyRecDMA when (GPUSTAT_DMADirection = "01") else
                              GPUSTAT_ReadyRecDMA when (GPUSTAT_DMADirection = "10") else
-                             not vram2cpu_Fifo_Empty; -- GPUSTAT_ReadySendVRAM cannot be used, because data is read earlier                
+                             GPUSTAT_ReadySendVRAM;                   
 
    video_interlace        <= GPUSTAT_VerRes and interlacedDisplayField;
 
@@ -1104,8 +1096,6 @@ begin
       DrawPixelsMask       => GPUSTAT_DrawPixelsMask,
       SetMask              => GPUSTAT_SetMask,
       
-      REPRODUCIBLEGPUTIMING=> REPRODUCIBLEGPUTIMING,  
-      
       proc_idle            => proc_idle,
       fifo_Valid           => fifoIn_Valid, 
       fifo_data            => fifoIn_Dout,
@@ -1136,6 +1126,8 @@ begin
    
    DMA_GPU_read <= vram2cpu_Fifo_Dout when (vram2cpu_Fifo_Empty = '0') else (others => '1');
    
+   GPUSTAT_ReadySendVRAM <= not vram2cpu_Fifo_Empty;
+   
    igpu_vram2cpu : entity work.gpu_vram2cpu
    port map
    (
@@ -1164,8 +1156,7 @@ begin
       
       Fifo_Dout            => vram2cpu_Fifo_Dout, 
       Fifo_Rd              => vram2cpu_Fifo_Rd,   
-      Fifo_Empty           => vram2cpu_Fifo_Empty,
-      Fifo_ready           => GPUSTAT_ReadySendVRAM
+      Fifo_Empty           => vram2cpu_Fifo_Empty
    );
    
    igpu_line : entity work.gpu_line
@@ -1684,14 +1675,6 @@ begin
          
       fpscountOn              => fpscountOn,
       fpscountBCD             => fpscountBCD,
-
-      Gun1CrosshairOn         => Gun1CrosshairOn,
-      Gun1X                   => Gun1X,
-      Gun1Y_scanlines         => Gun1Y_scanlines,
-
-      Gun2CrosshairOn         => Gun2CrosshairOn,
-      Gun2X                   => Gun2X,
-      Gun2Y_scanlines         => Gun2Y_scanlines,
       
       debug_lateSamples       => debug_lateSamples,
       debug_lateTicks         => debug_lateTicks, 
@@ -1833,7 +1816,7 @@ begin
             
             wait until rising_edge(clk2x);
             
-            if (pixelWrite = '1' and pixelCount >= 0) then
+            if ((pipeline_pixelWrite = '1' or vram2vram_pixelWrite = '1') and pixelCount >= 0) then
             
                write(line_out, to_integer(pixelAddr(10 downto 1)));
                write(line_out, string'(" ")); 

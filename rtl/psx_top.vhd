@@ -24,12 +24,10 @@ entity psx_top is
       REPRODUCIBLEGPUTIMING : in  std_logic;
       REPRODUCIBLEDMATIMING : in  std_logic;
       DMABLOCKATONCE        : in  std_logic;
-      multitrack            : in  std_logic;
       INSTANTSEEK           : in  std_logic;
       ditherOff             : in  std_logic;
       fpscountOn            : in  std_logic;
       errorOn               : in  std_logic;
-      PATCHSERIAL           : in  std_logic;
       noTexture             : in  std_logic;
       SPUon                 : in  std_logic;
       SPUSDRAM              : in  std_logic;
@@ -60,13 +58,9 @@ entity psx_top is
       -- cd
       region                : in  std_logic_vector(1 downto 0);
       hasCD                 : in  std_logic;
-      newCD                 : in  std_logic;
       fastCD                : in  std_logic;
       LIDopen               : in  std_logic;
       libcryptKey           : in  std_logic_vector(15 downto 0);
-      trackinfo_data        : in std_logic_vector(31 downto 0);
-      trackinfo_addr        : in std_logic_vector(8 downto 0);
-      trackinfo_write       : in std_logic;
       cd_Size               : in  unsigned(29 downto 0);
       cd_req                : out std_logic := '0';
       cd_addr               : out std_logic_vector(26 downto 0) := (others => '0');
@@ -75,7 +69,6 @@ entity psx_top is
       cd_hps_on             : in  std_logic;
       cd_hps_req            : out std_logic := '0';
       cd_hps_lba            : out std_logic_vector(31 downto 0);
-      cd_hps_lba_sim        : out std_logic_vector(31 downto 0);
       cd_hps_ack            : in  std_logic;
       cd_hps_write          : in  std_logic;
       cd_hps_data           : in  std_logic_vector(15 downto 0);
@@ -132,12 +125,10 @@ entity psx_top is
       PadPortAnalog1        : in  std_logic;
       PadPortMouse1         : in  std_logic;
       PadPortGunCon1        : in  std_logic;
-      PadPortneGcon1        : in  std_logic;
       PadPortEnable2        : in  std_logic;
       PadPortAnalog2        : in  std_logic;
       PadPortMouse2         : in  std_logic;
       PadPortGunCon2        : in  std_logic;
-      PadPortneGcon2        : in  std_logic;
       KeyTriangle           : in  std_logic_vector(1 downto 0); 
       KeyCircle             : in  std_logic_vector(1 downto 0); 
       KeyCross              : in  std_logic_vector(1 downto 0); 
@@ -178,21 +169,7 @@ entity psx_top is
       savestate_number      : in  integer range 0 to 3;
       state_loaded          : out std_logic;
       rewind_on             : in  std_logic;
-      rewind_active         : in  std_logic;
-      -- cheats
-      cheat_clear           : in  std_logic;
-      cheats_enabled        : in  std_logic;
-      cheat_on              : in  std_logic;
-      cheat_in              : in  std_logic_vector(127 downto 0);
-      cheats_active         : out std_logic := '0';
-
-      Cheats_BusAddr        : buffer std_logic_vector(20 downto 0);
-      Cheats_BusRnW         : out    std_logic;
-      Cheats_BusByteEnable  : out    std_logic_vector(3 downto 0);
-      Cheats_BusWriteData   : out    std_logic_vector(31 downto 0);
-      Cheats_Bus_ena        : out    std_logic := '0';
-      Cheats_BusReadData    : in     std_logic_vector(31 downto 0);
-      Cheats_BusDone        : in     std_logic
+      rewind_active         : in  std_logic
    );
 end entity;
 
@@ -407,8 +384,6 @@ architecture arch of psx_top is
    -- dma
    signal cpuPaused              : std_logic;
    signal dmaOn                  : std_logic;
-   signal dmaRequest             : std_logic;
-   signal canDMA                 : std_logic;
    
    signal ram_dma_dataWrite      : std_logic_vector(31 downto 0);
    signal ram_dma_Adr            : std_logic_vector(22 downto 0);
@@ -483,22 +458,6 @@ architecture arch of psx_top is
    
    signal debugmodeOn            : std_logic;
    
-   signal serial_newchar         : std_logic;
-   signal serial_newline         : std_logic;
-   signal serial_char            : std_logic_vector(7 downto 0);
-
-   signal showGunCrosshairs      : std_logic := '1';
-   signal Gun1CrosshairOn        : std_logic;
-   signal Gun2CrosshairOn        : std_logic;
-   signal Gun1X                  : unsigned(7 downto 0);
-   signal Gun1Y                  : unsigned(7 downto 0);
-   signal Gun2X                  : unsigned(7 downto 0);
-   signal Gun2Y                  : unsigned(7 downto 0);
-   signal Gun1Y_scanlines        : unsigned(8 downto 0);
-   signal Gun2Y_scanlines        : unsigned(8 downto 0);
-   signal Gun1AimOffscreen       : std_logic;
-   signal Gun2AimOffscreen       : std_logic;
-
    -- memcard
    signal memcard1_pause         : std_logic;
    signal memcard2_pause         : std_logic;
@@ -656,8 +615,6 @@ begin
    SS_idle <= SS_Idle_gpu and SS_Idle_mdec and SS_Idle_cd and SS_idle_spu and SS_idle_pad and SS_idle_irq and SS_idle_cpu and SS_idle_gte and SS_idle_dma;
    
    -- ce generation
-   canDMA <= memMuxIdle and not stallNext;
-   
    process (clk1x)
    begin
       if rising_edge(clk1x) then
@@ -688,11 +645,11 @@ begin
             else
          
                -- switch to pause/savestate pausing
-               if ((pause = '1' or savestate_pause = '1' or memcard1_pause = '1' or memcard2_pause = '1') and cpuPaused = '0' and dmaRequest = '0' and canDMA = '1' and SS_idle = '1') then
+               if ((pause = '1' or savestate_pause = '1' or memcard1_pause = '1' or memcard2_pause = '1') and cpuPaused = '0' and dmaOn = '0' and stallNext = '0' and memMuxIdle = '1' and SS_idle = '1') then
                   pausing <= '1';
                   ce      <= '0';
                   ce_cpu  <= '0';
-               elsif ((cpuPaused = '1' and dmaOn = '1') or (dmaRequest = '1' and canDMA = '1')) then -- switch to dma
+               elsif ((cpuPaused = '1' and dmaOn = '1') or (dmaOn = '1' and memMuxIdle = '1' and stallNext = '0')) then -- switch to dma
                   cpuPaused <= '1';
                   ce_cpu    <= '0';
                elsif (dmaOn = '0') then -- switch to CPU
@@ -750,7 +707,6 @@ begin
          if (REPRODUCIBLESPUDMA    = '1') then debugmodeOn <= '1'; end if;
          if (videoout_on           = '0') then debugmodeOn <= '1'; end if;
          if (pal60                 = '1') then debugmodeOn <= '1'; end if;
-         if (PATCHSERIAL           = '1') then debugmodeOn <= '1'; end if;
          
       end if;
    end process;
@@ -896,25 +852,6 @@ begin
       SS_DataRead          => SS_DataRead_MEMORY      
    );
 
-   -- Gun coordinate mapping is toplevel so that the gun's
-   -- coordinates can be passed to both joypad
-   -- and GPU (for crosshair overlays)
-   Gun1X <= to_unsigned(to_integer(Analog1XP1 + 128), 8);
-   Gun2X <= to_unsigned(to_integer(Analog1XP2 + 128), 8);
-
-   Gun1Y <= to_unsigned(to_integer(Analog1YP1 + 128), 8);
-   Gun2Y <= to_unsigned(to_integer(Analog1YP2 + 128), 8);
-
-   Gun1AimOffscreen <= '1' when Gun1X = x"00" or Gun1X = x"FF" or Gun1Y = x"00" or Gun1Y = x"FF" else '0';
-   Gun2AimOffscreen <= '1' when Gun2X = x"00" or Gun2X = x"FF" or Gun2Y = x"00" or Gun2Y = x"FF" else '0';
-
-   Gun1CrosshairOn <= '1' when showGunCrosshairs = '1' and PadPortGunCon1 = '1' and Gun1AimOffscreen = '0' else '0';
-   Gun2CrosshairOn <= '1' when showGunCrosshairs = '1' and PadPortGunCon2 = '1' and Gun2AimOffscreen = '0' else '0';
-
-   -- Map the gun's Y coordinate to 240 scanlines
-   Gun1Y_scanlines <= resize(Gun1Y, 9) - resize(Gun1Y(7 downto 4), 9); -- Gun1Y * 240 / 256
-   Gun2Y_scanlines <= resize(Gun2Y, 9) - resize(Gun2Y(7 downto 4), 9); -- Gun1Y * 240 / 256
-
    ijoypad: entity work.joypad
    port map 
    (
@@ -923,19 +860,15 @@ begin
       clk2xIndex           => clk2xIndex,
       ce                   => ce,   
       reset                => reset_intern,
-
-      isPal                => isPal, -- passed through for GunCon
       
       PadPortEnable1       => PadPortEnable1,
       PadPortAnalog1       => PadPortAnalog1,
       PadPortMouse1        => PadPortMouse1,
       PadPortGunCon1       => PadPortGunCon1,
-      PadPortNeGcon1       => PadPortNeGcon1,
       PadPortEnable2       => PadPortEnable2,
       PadPortAnalog2       => PadPortAnalog2,
       PadPortMouse2        => PadPortMouse2, 
       PadPortGunCon2       => PadPortGunCon2,
-      PadPortNeGcon2       => PadPortNeGcon2,
       
       memcard1_available   => memcard1_available,
       memcard2_available   => memcard2_available,
@@ -971,12 +904,6 @@ begin
       MouseRight           => MouseRight,
       MouseX               => MouseX,
       MouseY               => MouseY,
-      Gun1X                => Gun1X,
-      Gun2X                => Gun2X,
-      Gun1Y_scanlines      => Gun1Y_scanlines,
-      Gun2Y_scanlines      => Gun2Y_scanlines,
-      Gun1AimOffscreen     => Gun1AimOffscreen,
-      Gun2AimOffscreen     => Gun2AimOffscreen,
       
       mem1_request         => memDDR3card1_request,   
       mem1_BURSTCNT        => memDDR3card1_BURSTCNT,  
@@ -1015,34 +942,6 @@ begin
       SS_idle              => SS_idle_pad
    );
    
-   icheats : entity work.cheats
-   port map
-   (
-      clk1x          => clk1x,
-      ce             => ce,
-      reset          => reset_intern,
-
-      dmaOn          => dmaOn,
-
-      cheat_clear    => cheat_clear,
-      cheats_enabled => cheats_enabled,
-      cheat_on       => cheat_on,
-      cheat_in       => cheat_in,
-      cheats_active  => cheats_active,
-
-      vsync          => IRQ_VBlank,
-
-      --bus_ena_in     => mem_bus_ena,
-
-      BusAddr        => Cheats_BusAddr,
-      BusRnW         => Cheats_BusRnW,
-      BusByteEnable  => Cheats_BusByteEnable,
-      BusWriteData   => Cheats_BusWriteData,
-      Bus_ena        => Cheats_Bus_ena,
-      BusReadData    => Cheats_BusReadData,
-      BusDone        => Cheats_BusDone
-   );
-
    isio : entity work.sio
    port map
    (
@@ -1120,9 +1019,7 @@ begin
       REPRODUCIBLEDMATIMING=> REPRODUCIBLEDMATIMING,
       DMABLOCKATONCE       => DMABLOCKATONCE,
       
-      canDMA               => canDMA,
       cpuPaused            => cpuPaused,
-      dmaRequest           => dmaRequest,
       dmaOn                => dmaOn,
       irqOut               => irq_DMA,
       
@@ -1244,10 +1141,8 @@ begin
       ce                   => ce,   
       reset                => reset_intern,
      
-      multitrack           => multitrack,
       INSTANTSEEK          => INSTANTSEEK,
       hasCD                => hasCD,
-      newCD                => newCD,
       fastCD               => fastCD,
       LIDopen              => LIDopen,
       region               => region,
@@ -1280,14 +1175,9 @@ begin
       cd_hps_on            => cd_hps_on,   
       cd_hps_req           => cd_hps_req,  
       cd_hps_lba           => cd_hps_lba,
-      cd_hps_lba_sim       => cd_hps_lba_sim,
       cd_hps_ack           => cd_hps_ack,
       cd_hps_write         => cd_hps_write,
       cd_hps_data          => cd_hps_data, 
-      
-      trackinfo_data       => trackinfo_data,
-      trackinfo_addr       => trackinfo_addr, 
-      trackinfo_write      => trackinfo_write,
       
       SS_reset             => SS_reset,
       SS_DataWrite         => SS_DataWrite,
@@ -1300,7 +1190,7 @@ begin
    
    
    hblank <= hblank_intern;
-
+   
    igpu : entity work.gpu
    port map
    (
@@ -1319,14 +1209,6 @@ begin
       noTexture            => noTexture,
       debugmodeOn          => debugmodeOn,
       
-      Gun1CrosshairOn      => Gun1CrosshairOn,
-      Gun1X                => Gun1X,
-      Gun1Y_scanlines      => Gun1Y_scanlines,
-
-      Gun2CrosshairOn      => Gun2CrosshairOn,
-      Gun2X                => Gun2X,
-      Gun2Y_scanlines      => Gun2Y_scanlines,
-
       cdSlow               => cdSlow,
       
       errorOn              => errorOn,  
@@ -1341,7 +1223,7 @@ begin
       errorPOLY            => errorPOLY,
       errorGPU             => errorGPU, 
       errorMASK            => errorMASK, 
-      errorFIFO            => errorGPUFIFO,
+      errorFIFO            => errorGPUFIFO, 
       
       bus_addr             => bus_gpu_addr,     
       bus_dataWrite        => bus_gpu_dataWrite,
@@ -1530,11 +1412,7 @@ begin
       bus_read             => bus_exp2_read,     
       bus_write            => bus_exp2_write,    
       bus_writeMask        => bus_exp2_writeMask, 
-      bus_dataRead         => bus_exp2_dataRead,
-      
-      serial_newchar       => serial_newchar,
-      serial_newline       => serial_newline,
-      serial_char          => serial_char
+      bus_dataRead         => bus_exp2_dataRead
    );
 
    imemorymux : entity work.memorymux
@@ -1551,7 +1429,6 @@ begin
       
       fastboot             => fastboot,
       NOMEMWAIT            => FASTMEM,
-      PATCHSERIAL          => PATCHSERIAL,
             
       ram_dataWrite        => ram_cpu_dataWrite,
       ram_dataRead         => ram_dataRead, 

@@ -17,8 +17,6 @@ entity gpu_vram2vram is
       DrawPixelsMask       : in  std_logic;
       SetMask              : in  std_logic;
       
-      REPRODUCIBLEGPUTIMING: in  std_logic;
-      
       proc_idle            : in  std_logic;
       fifo_Valid           : in  std_logic;
       fifo_data            : in  std_logic_vector(31 downto 0);
@@ -54,7 +52,6 @@ architecture arch of gpu_vram2vram is
       REQUESTWORD4,
       READVRAM,
       WAITREAD,
-      WAITIMING,
       READFIRST,
       WRITING
    );
@@ -73,8 +70,6 @@ architecture arch of gpu_vram2vram is
    signal xDst         : unsigned(9 downto 0);
    signal xCnt         : unsigned(10 downto 0);
    signal yCnt         : unsigned(9 downto 0);
-   
-   signal drawTiming   : unsigned(6 downto 0);
   
 begin 
 
@@ -105,11 +100,6 @@ begin
             pixelWrite        <= '0';
             
             done              <= '0';
-            
-            if (state /= IDLE) then
-               drawTiming <= drawTiming + 1;
-            end if;
-         
          
             case (state) is
             
@@ -160,22 +150,12 @@ begin
 
                   xCnt <= (others => '0');
                   if (requestVRAMIdle = '1') then
-                     state      <= WAITREAD;
-                     drawTiming <= (others => '0');
+                     state <= WAITREAD;
                   end if;
                   
                when WAITREAD =>
                   if (requestVRAMDone = '1') then
-                     if (REPRODUCIBLEGPUTIMING = '1') then
-                        state <= WAITIMING;
-                     else
-                        state <= READFIRST;
-                     end if;
-                  end if;
-                  
-               when WAITIMING =>
-                  if (drawTiming >= 80) then
-                     state <= READFIRST; 
+                     state <= READFIRST;
                   end if;
                   
                when READFIRST => 

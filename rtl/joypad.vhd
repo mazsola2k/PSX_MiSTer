@@ -12,19 +12,15 @@ entity joypad is
       clk2xIndex           : in  std_logic;
       ce                   : in  std_logic;
       reset                : in  std_logic;
-
-      isPal                : in  std_logic; -- passed through for GunCon
       
       PadPortEnable1       : in  std_logic;
       PadPortAnalog1       : in  std_logic;
       PadPortMouse1        : in  std_logic;
       PadPortGunCon1       : in  std_logic;
-      PadPortNeGcon1       : in  std_logic;
       PadPortEnable2       : in  std_logic;
       PadPortAnalog2       : in  std_logic;
       PadPortMouse2        : in  std_logic;
       PadPortGunCon2       : in  std_logic;
-      PadPortNeGcon2       : in  std_logic;
       
       memcard1_available   : in  std_logic;
       memcard2_available   : in  std_logic;
@@ -62,12 +58,6 @@ entity joypad is
       MouseRight           : in  std_logic;
       MouseX               : in  signed(8 downto 0);
       MouseY               : in  signed(8 downto 0);
-      Gun1X                : in  unsigned(7 downto 0);
-      Gun2X                : in  unsigned(7 downto 0);
-      Gun1Y_scanlines      : in  unsigned(8 downto 0);
-      Gun2Y_scanlines      : in  unsigned(8 downto 0);
-      Gun1AimOffscreen     : in  std_logic;
-      Gun2AimOffscreen     : in  std_logic;
 
       mem1_request         : out std_logic;
       mem1_BURSTCNT        : out std_logic_vector(7 downto 0) := (others => '0'); 
@@ -375,8 +365,6 @@ begin
       analogPad            => PadPortAnalog1,
       isMouse              => PadPortMouse1,
       isGunCon             => PadPortGunCon1,
-      isNeGcon             => PadPortNeGcon1,
-      isPal                => isPal,
 
       selected             => selectedPad1,
       actionNext           => actionNextPad,
@@ -416,10 +404,7 @@ begin
       MouseLeft            => MouseLeft,
       MouseRight           => MouseRight,
       MouseX               => MouseX,
-      MouseY               => MouseY,
-      GunX                 => Gun1X,
-      GunY_scanlines       => Gun1Y_scanlines,
-      GunAimOffscreen      => Gun1AimOffscreen
+      MouseY               => MouseY
    );
    
    ijoypad_pad2 : entity work.joypad_pad
@@ -433,8 +418,6 @@ begin
       analogPad            => PadPortAnalog2,
       isMouse              => PadPortMouse2,
       isGunCon             => PadPortGunCon2,
-      isNeGcon             => PadPortNeGcon2,
-      isPal                => isPal,
 
       selected             => selectedPad2,
       actionNext           => actionNextPad,
@@ -474,10 +457,7 @@ begin
       MouseLeft            => MouseLeft,
       MouseRight           => MouseRight,
       MouseX               => MouseX,
-      MouseY               => MouseY,
-      GunX                 => Gun2X,
-      GunY_scanlines       => Gun2Y_scanlines,
-      GunAimOffscreen      => Gun2AimOffscreen
+      MouseY               => MouseY
    );
    
    ijoypad_mem1 : entity work.joypad_mem
